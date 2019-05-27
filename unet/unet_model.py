@@ -1,7 +1,4 @@
-# full assembly of the sub-parts to form the complete net
-
-import torch.nn.functional as F
-
+from utils import prepare_data_for_vis
 from .unet_parts import *
 
 class UNet(nn.Module):
@@ -29,4 +26,42 @@ class UNet(nn.Module):
         x = self.up3(x, x2)
         x = self.up4(x, x1)
         x = self.outc(x)
+        return F.sigmoid(x)
+
+class UNetVis(nn.Module):
+    def __init__(self, n_channels, n_classes):
+        super(UNetVis, self).__init__()
+        self.inc = inconv(n_channels, 64)
+        self.down1 = down(64, 128)
+        self.down2 = down(128, 256)
+        self.down3 = down(256, 512)
+        self.down4 = down(512, 512)
+        self.up1 = up(1024, 256)
+        self.up2 = up(512, 128)
+        self.up3 = up(256, 64)
+        self.up4 = up(128, 64)
+        self.outc = outconv(64, n_classes)
+
+    def forward(self, x):
+        prepare_data_for_vis(x, 'Исходное')
+        x1 = self.inc(x)
+        prepare_data_for_vis(x1, 'inc')
+        x2 = self.down1(x1)
+        prepare_data_for_vis(x2, 'down1')
+        x3 = self.down2(x2)
+        prepare_data_for_vis(x3, 'down2')
+        x4 = self.down3(x3)
+        prepare_data_for_vis(x4, 'down3')
+        x5 = self.down4(x4)
+        prepare_data_for_vis(x5, 'down4')
+        x = self.up1(x5, x4)
+        prepare_data_for_vis(x, 'up1')
+        x = self.up2(x, x3)
+        prepare_data_for_vis(x, 'up2')
+        x = self.up3(x, x2)
+        prepare_data_for_vis(x, 'up3')
+        x = self.up4(x, x1)
+        prepare_data_for_vis(x, 'up4')
+        x = self.outc(x)
+        prepare_data_for_vis(x, 'outc')
         return F.sigmoid(x)

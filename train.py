@@ -1,5 +1,6 @@
 import sys
 import os
+import time
 from optparse import OptionParser
 import numpy as np
 
@@ -16,17 +17,20 @@ def train_net(net,
               epochs=5,
               batch_size=1,
               lr=0.1,
-              val_percent=0.05,
+              val_percent=0.25,
               save_cp=True,
               gpu=False,
-              img_scale=0.5):
+              img_scale=0.5,
+              weight_decay=0.005):
 
-    dir_img = 'data/train/'
-    dir_mask = 'data/train_masks/'
+    dir_img = 'result/tr/'
+    dir_mask = 'result/tar/'
     dir_checkpoint = 'checkpoints/'
 
     ids = get_ids(dir_img)
-    ids = split_ids(ids)
+
+    # ids = split_ids(ids)
+
 
     iddataset = split_train_val(ids, val_percent)
 
@@ -47,10 +51,9 @@ def train_net(net,
     optimizer = optim.SGD(net.parameters(),
                           lr=lr,
                           momentum=0.9,
-                          weight_decay=0.0005)
-
-    criterion = nn.BCELoss()
-
+                          weight_decay=weight_decay)
+    criterion = nn.BCEWithLogitsLoss()
+    t_time = time.time()
     for epoch in range(epochs):
         print('Starting epoch {}/{}.'.format(epoch + 1, epochs))
         net.train()
@@ -58,7 +61,6 @@ def train_net(net,
         # reset the generators
         train = get_imgs_and_masks(iddataset['train'], dir_img, dir_mask, img_scale)
         val = get_imgs_and_masks(iddataset['val'], dir_img, dir_mask, img_scale)
-
         epoch_loss = 0
 
         for i, b in enumerate(batch(train, batch_size)):
@@ -74,7 +76,6 @@ def train_net(net,
 
             masks_pred = net(imgs)
             masks_probs_flat = masks_pred.view(-1)
-
             true_masks_flat = true_masks.view(-1)
 
             loss = criterion(masks_probs_flat, true_masks_flat)
@@ -86,7 +87,7 @@ def train_net(net,
             loss.backward()
             optimizer.step()
 
-        print('Epoch finished ! Loss: {}'.format(epoch_loss / i))
+        print('Epoch finished ! Loss: {} Time: {}'.format(epoch_loss / (i+1), time.time()-t_time))
 
         if 1:
             val_dice = eval_net(net, val, gpu)
@@ -96,16 +97,17 @@ def train_net(net,
             torch.save(net.state_dict(),
                        dir_checkpoint + 'CP{}.pth'.format(epoch + 1))
             print('Checkpoint {} saved !'.format(epoch + 1))
+    print(f'All time: {time.time() - t_time}')
 
 
 
 def get_args():
     parser = OptionParser()
-    parser.add_option('-e', '--epochs', dest='epochs', default=5, type='int',
+    parser.add_option('-e', '--epochs', dest='epochs', default=30, type='int',
                       help='number of epochs')
-    parser.add_option('-b', '--batch-size', dest='batchsize', default=10,
+    parser.add_option('-b', '--batch-size', dest='batchsize', default=1,
                       type='int', help='batch size')
-    parser.add_option('-l', '--learning-rate', dest='lr', default=0.1,
+    parser.add_option('-l', '--learning-rate', dest='lr', default=0.3,
                       type='float', help='learning rate')
     parser.add_option('-g', '--gpu', action='store_true', dest='gpu',
                       default=False, help='use cuda')
@@ -113,6 +115,9 @@ def get_args():
                       default=False, help='load file model')
     parser.add_option('-s', '--scale', dest='scale', type='float',
                       default=0.5, help='downscaling factor of the images')
+
+    parser.add_option('-w', '--weight', dest='weight', type='float',
+                      default=0.0005, help='weight decay')
 
     (options, args) = parser.parse_args()
     return options
@@ -136,7 +141,8 @@ if __name__ == '__main__':
                   batch_size=args.batchsize,
                   lr=args.lr,
                   gpu=args.gpu,
-                  img_scale=args.scale)
+                  img_scale=args.scale,
+                  weight_decay = args.weight)
     except KeyboardInterrupt:
         torch.save(net.state_dict(), 'INTERRUPTED.pth')
         print('Saved interrupt')

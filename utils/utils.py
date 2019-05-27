@@ -1,5 +1,7 @@
 import random
 import numpy as np
+from torchvision import transforms
+import matplotlib.pyplot as plt
 
 
 def get_square(img, pos):
@@ -43,7 +45,7 @@ def batch(iterable, batch_size):
     if len(b) > 0:
         yield b
 
-def split_train_val(dataset, val_percent=0.05):
+def split_train_val(dataset, val_percent=0.00):
     dataset = list(dataset)
     length = len(dataset)
     n = int(length * val_percent)
@@ -56,10 +58,9 @@ def normalize(x):
 
 def merge_masks(img1, img2, full_w):
     h = img1.shape[0]
-
     new = np.zeros((h, full_w), np.float32)
-    new[:, :full_w // 2 + 1] = img1[:, :full_w // 2 + 1]
-    new[:, full_w // 2 + 1:] = img2[:, -(full_w // 2 - 1):]
+    new[:, :full_w // 2  ] = img1[:, :full_w // 2  ]
+    new[:, full_w // 2 :] = img2[:, -(full_w // 2 ):]
 
     return new
 
@@ -76,3 +77,9 @@ def rle_encode(mask_image):
     runs = np.where(pixels[1:] != pixels[:-1])[0] + 2
     runs[1::2] = runs[1::2] - runs[:-1:2]
     return runs
+
+def prepare_data_for_vis(data, name):
+    data = data[0,0,  :, :]
+    plt.title(name)
+    plt.imshow(data)
+    plt.show()
